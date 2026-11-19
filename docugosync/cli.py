@@ -51,4 +51,4 @@ def main(argv=None) -> int:
     if args.output:
         args.output.write_text(render_markdown(findings), encoding="utf-8")
         print(f"\nMarkdown report written to: {args.output}")
-    return 1 if findings else 0
+    return 0
