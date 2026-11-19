@@ -134,7 +134,7 @@ def analyze_snapshots(
 def analyze_repository(repo: Path, base: str = "HEAD~1") -> list[Finding]:
     """Analyze changed Python files against docs in the current working tree."""
     repo = repo.resolve()
-    changed = _run_git(repo, "diff", "--name-only", f"{base}...HEAD").splitlines()
+    changed = _run_git(repo, "diff","--no-renames","--name-only", f"{base}...HEAD").splitlines()
     py_files = [p for p in changed if p.endswith(".py")]
 
     old_sources: dict[str, str] = {}
