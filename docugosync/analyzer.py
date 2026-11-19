@@ -1,6 +1,7 @@
 """Core documentation drift checks for DocuGoSync."""
 from __future__ import annotations
 
+import re
 import difflib
 import subprocess
 from dataclasses import asdict, dataclass
@@ -87,23 +88,45 @@ def analyze_snapshots(
                 ))
 
     # Changed literal defaults: require both the setting name and old value in the doc line.
+    
+    
+    # Changed literal defaults: compare documented values with new code values.
     for name, source_path, before, after in changed_settings:
-        before_text = str(before).lower()
+        pattern = (
+            rf"\b{re.escape(name)}\b"
+            rf"(?:\s+default)?\s*"
+            rf"(?:is|=|:|defaults?\s+to)\s*"
+            r"(`?)([-+]?\d+(?:\.\d+)?|True|False|None)(`?)"
+        )
+
         for doc in docs:
-            text = doc.text.lower()
-            if name.lower() in text and before_text in text:
-                replacement_text = doc.text.replace(str(before), str(after))
-                findings.append(Finding(
-                    kind="changed_default",
-                    severity="high",
-                    confidence=0.96,
-                    doc_path=doc.path,
-                    doc_line=doc.line,
-                    documented_text=doc.text,
-                    source_path=source_path,
-                    code_evidence=f"{name}: {before!r} -> {after!r}",
-                    suggestion=replacement_text,
-                ))
+            match = re.search(pattern, doc.text, re.IGNORECASE)
+
+            if not match:
+                continue
+
+            documented_value = match.group(2)
+
+            if documented_value.lower() == str(after).lower():
+                continue
+
+            suggestion = (
+                doc.text[:match.start(2)]
+                + str(after)
+                + doc.text[match.end(2):]
+            )
+
+            findings.append(Finding(
+                kind="changed_default",
+                severity="high",
+                confidence=0.96,
+                doc_path=doc.path,
+                doc_line=doc.line,
+                documented_text=doc.text,
+                source_path=source_path,
+                code_evidence=f"{name}: {before!r} -> {after!r}",
+                suggestion=suggestion,
+            ))
 
     # New uppercase settings absent from all documentation.
     all_doc_text = "\n".join(d.text for d in docs).lower()
